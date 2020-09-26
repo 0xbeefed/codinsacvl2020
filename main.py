@@ -150,7 +150,8 @@ class Game:
                 self.captured_buzzers.append(buzzer)
 
         current_power = data[2]  
-        suspected = data[3]  
+        suspected = int(data[3])
+        print('suspected: ', suspected)
 
         if data[4].split()[0] == 'Q':
             door = data[4].split()[1]
@@ -174,10 +175,8 @@ class Game:
             exit()
 
         # Compute actions [0]: Move | [1]: Power ('P' or 'S')
+        #action = self.flood_fill_min(current_cell, enemies, suspected)
         action = self.astar(current_cell, turn)#self.flood_fill_buzzers(current_cell)
-
-        #best_move = self.flood_fill_min(current_cell, enemies)
-        #action = [['M', best_move[0]], [None, -1]]
 
         # Send actions
         action_str = ' '.join((str(i) for i in action[0])) + '\n'
@@ -212,7 +211,7 @@ class Game:
 
         return output
 
-    def flood_fill_min(self, current_cell, enemies):
+    def flood_fill_min(self, current_cell, enemies, suspected):
         # Guards
         enemy_propagated = {}
         for enemy in enemies:
@@ -221,7 +220,7 @@ class Game:
 
             if enemy_type == 'G':
                 # Propagate from any guard, dist max 10
-                enemy_propagated[enemy_cell] = self.propagate(enemy_cell, 8, 100, 1.2)
+                enemy_propagated[enemy_cell] = self.propagate(enemy_cell, 8, 25 + 200 * suspected, 1.1)
 
 
         # Pick the cell with the lowest score
@@ -245,11 +244,42 @@ class Game:
                         if move[2] > self.sub_floodfill_maps[buzzer][new_cell_id] + value_modifier:
                             move[2] = self.sub_floodfill_maps[buzzer][new_cell_id] + value_modifier
                 possible_moves.append(list(move))
-
         possible_moves = sorted(possible_moves, key=lambda a: a[2])
+
+        # If suspected, try to run
         print('[PROPAGATE]', 'Possible moves:', possible_moves)
-        print('[PROPAGATE]', 'Best pick: ', possible_moves[0])
-        return possible_moves[0]
+        best_move_1 = possible_moves[0][0]
+        print('[PROPAGATE]', 'Best pick for move 1: ', possible_moves[0])
+        if suspected:
+            # Compute the best move for the second step
+            print('[PROPAGATE]', 'We are suspected, RUN')
+            possible_moves = []
+            for direction in [1, 2, 3, 4, 5, 6]:
+                new_cell_id = self.next_cell(best_move_1, direction)
+
+                if new_cell_id in self.grid.keys() and self.grid[new_cell_id].browseable:
+                    # For a direction, we take the smallest of all buzzer maps
+                    move = [direction, new_cell_id, float('inf'), self.grid[new_cell_id].type_cell]
+
+                    # Cell modifier from guards
+                    value_modifier = 0
+                    for k in enemy_propagated.keys():
+                        value_modifier += enemy_propagated[k][new_cell_id]
+                    print('[PROPAGATE]', 'value_modifier:', value_modifier)
+
+                    # Calculate worthyness from floodfill
+                    for buzzer in self.buzzers:
+                        if buzzer not in self.captured_buzzers:
+                            if move[2] > self.sub_floodfill_maps[buzzer][new_cell_id] + value_modifier:
+                                move[2] = self.sub_floodfill_maps[buzzer][new_cell_id] + value_modifier
+                    possible_moves.append(list(move))
+            possible_moves = sorted(possible_moves, key=lambda a: a[2])
+            best_move_2 = possible_moves[0][0]
+
+            return [['MF', best_move_1, best_move_2], [None, -1]]
+        else:
+            return [['M', best_move_1], [None, -1]]
+
 
 
     def astar(self, current_cell, turn):
