@@ -145,7 +145,6 @@ class Game:
         # Compute actions [0]: Move | [1]: Power ('P' or 'S')
         best_move = self.flood_fill_buzzers(current_cell)
         action = [['M', best_move[0]], [None, -1]]
-        print("current pos :", current_cell)
 
         # Send actions
         action_str = ' '.join((str(i) for i in action[0])) + '\n'
@@ -166,7 +165,6 @@ class Game:
         else :
             move = 2
         for i in range(1,move):
-            print ("pos : ", etat['position'])
             etat['position'] = self.next_cell(etat['position'],actions[0][i])
             if self.grid[position].master_type == "Wall" or not seeing[position][1] and (actions[1][0] != 'P' or current_power != 2) :
                 position = etat['position']
@@ -176,8 +174,6 @@ class Game:
         #etat ['dist_vigile'] = 
             #etudiant ivre et vigiles
         # gerer le sable
-        print ("next pos : ", etat['position'])
-                
 
     def flood_fill_buzzers(self, current_cell):
         #print('[PROPAGATE]', 'Starting propagation algo')
