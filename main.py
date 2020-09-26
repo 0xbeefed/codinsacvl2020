@@ -35,14 +35,6 @@ class Game:
 
         # Grab map size
         self.SIZE_X, self.SIZE_Y = map(int, data[1].split())
-        self.directions = {
-            1: -self.SIZE_X + 1,
-            2: 1,
-            3: self.SIZE_X + 1,
-            4: self.SIZE_X - 1,
-            5: -1,
-            6: -self.SIZE_X - 1
-        }
 
         # Parse grid data[2]
         for y in range(self.SIZE_Y):
@@ -171,8 +163,8 @@ class Game:
                     self.sub_propagate_grid[cell_id] = score
                 self.sub_propagate_grid[cell_id] = min(self.sub_propagate_grid[cell_id], score)
 
-                for direction in self.directions.keys():
-                    new_cell_id = cell_id + self.directions[direction]
+                for direction in [1, 2, 3, 4, 5, 6]:
+                    new_cell_id = self.next_cell(cell_id, direction)
                     if new_cell_id not in seen and new_cell_id in self.grid.keys() and self.grid[new_cell_id].browseable:
                         seen.append(new_cell_id)
                         queue.append([new_cell_id, level + 1])
@@ -188,9 +180,12 @@ class Game:
 
         # Pick the cell with the lowest score
         possible_moves = []
-        for direction in self.directions.keys():
-            new_cell_id = current_cell + self.directions[direction]
-            if new_cell_id in self.grid.keys() and self.grid[new_cell_id].browseable:
+        for direction in [1, 2, 3, 4, 5, 6]:
+            new_cell_id = self.next_cell(current_cell, direction)
+            print('current:', current_cell, 'cubic coordinates:', self.oddr_to_cube(self.pos_to_x_y(current_cell)))
+            print('Surrounding current:', new_cell_id, 'direction', direction, 'cubic coordinates:', self.oddr_to_cube(self.pos_to_x_y(new_cell_id)))
+            print('orginial:', new_cell_id, 'calculated:', self.x_y_to_pos(self.cube_to_oddr(self.oddr_to_cube(self.pos_to_x_y(new_cell_id)))))
+            if new_cell_id in self.grid.keys() and self.grid[new_cell_id].browseable and new_cell_id in self.propagate_grid:
                 possible_moves.append([direction, new_cell_id, self.propagate_grid[new_cell_id], self.grid[new_cell_id].type_cell])
         possible_moves = sorted(possible_moves, key=lambda a:a[2])
         print('[PROPAGATE]', 'Possible moves:', possible_moves)
@@ -199,13 +194,13 @@ class Game:
 
 
     def pos_to_x_y(self, pos):
-        x = pos%SIZE_X
-        y = pos//SIZE_X
+        x = pos % self.SIZE_X
+        y = pos // self.SIZE_X
         return (x, y)
 
     def x_y_to_pos(self, pos1):
         x, y = pos1
-        pos2 =y*SIZE_X + x
+        pos2 =y * self.SIZE_X + x
         return pos2
 
     def cube_to_oddr(self, pos1):
