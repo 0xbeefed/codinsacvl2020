@@ -25,6 +25,7 @@ class Game:
         self.guards = []
         self.students = []
         self.buzzers = []
+        self.ran = 2 # goes from 2 when you have two run left and -2 when you have to wait 2 turns
 
         # Grab init data
         self.network.send('token ' + config.token)
@@ -56,32 +57,32 @@ class Game:
                 if cell_type in [TYPE_BUZZGPE, TYPE_BUZZGM, TYPE_BUZZGC, TYPE_BUZZGMM, TYPE_BUZZGEI]:
                     # Buzzers
                     power = {TYPE_BUZZGPE: POWER_GPE, TYPE_BUZZGM: POWER_GM, TYPE_BUZZGC: POWER_GC, TYPE_BUZZGMM: POWER_GMM, TYPE_BUZZGEI: POWER_GEI}[cell_type]
-                    self.grid[cell_id] = Buzzer(x, y, cell_id, {}, cell_type, power)
+                    self.grid[cell_id] = Buzzer(x, y, cell_id, {}, cell_type, power,"Buzzer")
                     self.buzzers.append(cell_id)
 
                 elif cell_type in [TYPE_P2GEI, TYPE_P1GEI, TYPE_P1GM, TYPE_P2GM, TYPE_P1GMM, TYPE_P2GMM, TYPE_P1GC, TYPE_P2GC, TYPE_P1GPE, TYPE_P2GPE]:
                     # Doors
-                    self.grid[cell_id] = Door(x, y, cell_id, {}, cell_type, True)
+                    self.grid[cell_id] = Door(x, y, cell_id, {}, cell_type, True, "Doors")
 
                 elif cell_type in [TYPE_GPE, TYPE_GM, TYPE_GC, TYPE_GMM, TYPE_GEI]:
                     # Floors
-                    self.grid[cell_id] = Floor(x, y, cell_id, {}, cell_type)
+                    self.grid[cell_id] = Floor(x, y, cell_id, {}, cell_type, "Floors")
 
                 elif cell_type in [TYPE_WALL, TYPE_CONCRETE, TYPE_TREE, TYPE_BORDER]:
                     # Walls
-                    self.grid[cell_id] = Wall(x, y, cell_id, {}, cell_type)
+                    self.grid[cell_id] = Wall(x, y, cell_id, {}, cell_type, "Walls")
 
                 elif cell_type == TYPE_TAR:
                     # Tar
-                    self.grid[cell_id] = Tar(x, y, cell_id, {}, cell_type)
+                    self.grid[cell_id] = Tar(x, y, cell_id, {}, cell_type, "Tar")
 
                 elif cell_type == TYPE_SAND:
                     # Sand
-                    self.grid[cell_id] = Sand(x, y, cell_id, {}, cell_type)
+                    self.grid[cell_id] = Sand(x, y, cell_id, {}, cell_type, "Sand")
 
                 elif cell_type == TYPE_GRASS:
                     # Grass
-                    self.grid[cell_id] = Grass(x, y, cell_id, {}, cell_type)
+                    self.grid[cell_id] = Grass(x, y, cell_id, {}, cell_type, "Grass")
 
                 else:
                     print('[GAME]', 'Unable to map "' + cell_type + '" to a known cell type')
@@ -116,8 +117,9 @@ class Game:
         enemies = None  # enemies in sight
         EOT = None  # last line, if != 'EOT':exit()
 
-        current_cell, type_cell = data[1].split()
-        current_cell = int(current_cell)
+        temp = data[1].split()
+        current_cell = int(temp[0])
+        type_cell = temp[1]
         current_power = data[2]  
         suspected = data[3]  
 
@@ -126,10 +128,10 @@ class Game:
             del data[4]
 
         N = int(data[4])
-        seeing = []
+        seeing = {}
         for i in range(5, 5+N):
-            seeing.append(data[i].split())
-
+            cell = data[i].split()
+            seeing[int(cell[0])]=[cell[1],cell[2]]
         M = int(data[N+5])
         enemies = []
         for i in range(6+N, 6+N+M):
@@ -150,6 +152,29 @@ class Game:
             action_str += ' '.join((str(i) for i in action[1])) + '\n'
         action_str += 'EOI'
         self.network.send(action_str)
+        self.simulate_next_turn(current_cell, seeing, current_power, action)
+
+
+
+    def simulate_next_turn(self, old_pos, seeing, current_power, actions):
+        etat = {}
+        position = old_pos
+        etat ['position'] = position
+        if actions[0][0] == 'MF':
+            move = 2
+        else :
+            move = 1
+        for i in range(1,move):
+            position = position + self.directions[actions[0][i]]
+            if self.grid[position].master_type == "Wall" or not seeing[position][1] and (actions[1][0] != 'P' or current_power != 2) :
+                position = etat['position']
+            elif move == 2 and i == 1:
+                if self.grid[position].master_type != "Tar" or self.ran <=0:
+                    position = etat['position']
+        #etat ['dist_vigile'] = 
+            #etudiant ivre et vigiles
+        # gerer le sable
+                
 
     def flood_fill_buzzers(self, current_cell):
         print('[PROPAGATE]', 'Starting propagation algo')
