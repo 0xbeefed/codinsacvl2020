@@ -140,9 +140,27 @@ class Game:
             print('[GAME]', 'EOT Error', EOT)
             exit()
 
+        best_move = None
+        best_score = float('inf')
+        best_buzzer = None
+        for buzzer_pos in self.buzzers:
+            path = self.get_path(current_cell, buzzer_pos)
+            print(buzzer_pos, path)
+            if len(path) < best_score:
+                best_score = len(path)
+                best_move = path[-1]
+                best_buzzer = buzzer_pos
+
+        print("before", self.buzzers)
+        if best_score <= 1:
+            self.buzzers.remove(best_buzzer)
+
+        print("after", self.buzzers)
+        action = [['M', best_move], [None, -1]]
+
         # Compute actions [0]: Move | [1]: Power ('P' or 'S')
-        best_move = self.flood_fill_buzzers(current_cell)
-        action = [['M', best_move[0]], [None, -1]]
+        #best_move = self.flood_fill_buzzers(current_cell)
+        #action = [['M', best_move[0]], [None, -1]]
 
         # Send actions
         action_str = ' '.join((str(i) for i in action[0])) + '\n'
@@ -198,14 +216,51 @@ class Game:
         return possible_moves[0]
 
 
+    def get_path(self, start, end):
+        """Returns a path between start and end if it exists and a list of cells analzyed"""
+        if start == end:
+            return []
+        openList = [start]
+        nodes = {start: [-1, 0, -1]}  # nodes[cell_id] = [parent, distance from the start, move]
+        closedList = []
+        while openList:
+            current_node = openList[0]
+            for tmp in openList[1:]:
+                if nodes[tmp][1] + self.distance(tmp, end) < nodes[current_node][1] + self.distance(current_node, end):
+                    current_node = tmp
+            if current_node == end:
+                break
+
+            openList.remove(current_node)
+            closedList.append(current_node)
+            
+            for new_node, move in [(self.next_cell(current_node, i), i) for i in range(1, 7)]:
+                if not self.grid[new_node].browseable or new_node in closedList: 
+                    continue
+                elif not new_node in openList:
+                    openList.append(new_node)
+                    nodes[new_node] = [current_node, nodes[current_node][1] + 1, move]  # + 1 coef fixe, à changer en fonction du terrain
+                elif not new_node in nodes or nodes[new_node][1] > nodes[current_node][1] + 1:
+                    nodes[new_node] = [current_node, nodes[current_node][1] + 1, move]
+            
+        if current_node != end:  # if the path does not exist
+            return []
+
+        move_path = []
+        parent = end
+        while parent != start:
+            move_path += [nodes[parent][2]]
+            parent = nodes[parent][0]
+        return move_path
+
     def pos_to_x_y(self, pos):
-        x = pos%SIZE_X
-        y = pos//SIZE_X
+        x = pos%self.SIZE_X
+        y = pos//self.SIZE_X
         return (x, y)
 
     def x_y_to_pos(self, pos1):
         x, y = pos1
-        pos2 =y*SIZE_X + x
+        pos2 = y*self.SIZE_X + x
         return pos2
 
     def cube_to_oddr(self, pos1):
