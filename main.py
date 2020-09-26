@@ -117,12 +117,13 @@ class Game:
         EOT = None  # last line, if != 'EOT':exit()
 
         current_cell, type_cell = data[1].split()
+        current_cell = int(current_cell)
         current_power = data[2]  
         suspected = data[3]  
 
         if data[4].split()[0] == 'Q':
             door = data[4].split()[1]
-            data.remove(4)
+            del data[4]
 
         N = int(data[4])
         seeing = []
@@ -140,8 +141,8 @@ class Game:
             exit()
 
         # Compute actions [0]: Move | [1]: Power ('P' or 'S')
-        self.flood_fill_buzzers()
-        action = [['MF', 1, 2], [None, -1]]
+        best_move = self.flood_fill_buzzers(current_cell)
+        action = [['M', best_move[0]], [None, -1]]
 
         # Send actions
         action_str = ' '.join((str(i) for i in action[0])) + '\n'
@@ -150,7 +151,7 @@ class Game:
         action_str += 'EOI'
         self.network.send(action_str)
 
-    def flood_fill_buzzers(self):
+    def flood_fill_buzzers(self, current_cell):
         print('[PROPAGATE]', 'Starting propagation algo')
 
         for buzzer in self.buzzers:
@@ -184,7 +185,18 @@ class Game:
                 self.propagate_grid[cell] += self.sub_propagate_grid[cell]
 
         print('[PROPAGATE]', 'Propagation ended')
-        print(self.sub_propagate_grid)
+
+        # Pick the cell with the lowest score
+        possible_moves = []
+        for direction in self.directions.keys():
+            new_cell_id = current_cell + self.directions[direction]
+            if new_cell_id in self.grid.keys() and self.grid[new_cell_id].browseable:
+                possible_moves.append([direction, new_cell_id, self.propagate_grid[new_cell_id], self.grid[new_cell_id].type_cell])
+        possible_moves = sorted(possible_moves, key=lambda a:a[2])
+        print('[PROPAGATE]', 'Possible moves:', possible_moves)
+        print('[PROPAGATE]', 'Best pick: ', possible_moves[0])
+        return possible_moves[0]
+
 
 game = Game()
 while 1:
