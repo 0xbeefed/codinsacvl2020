@@ -229,6 +229,28 @@ class Game:
     def distance(self, pos1, pos2):
         return self.distance_cube(self.oddr_to_cube(self.pos_to_x_y(pos1)), self.oddr_to_cube(self.pos_to_x_y(pos2)))
 
+    def next_cell(self, pos, move):
+        i, j = self.pos_to_x_y(pos)
+        x, y, z = self.oddr_to_cube((i, j))
+        if move == 1:
+            x += 1
+            z -= 1
+        elif move == 2:
+            x += 1
+            y -= 1
+        elif move == 3:
+            y -= 1
+            z +=1
+        elif move == 4:
+            x -= 1
+            z += 1
+        elif move == 5:
+            x -= 1
+            y += 1
+        elif move == 6:
+            y += 1
+            z -= 1
+        return self.x_y_to_pos(self.cube_to_oddr((x, y, z)))
 
 game = Game()
 while 1:
