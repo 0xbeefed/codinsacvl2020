@@ -91,6 +91,9 @@ class Game:
         # Parse player count and self player id
         self.player_count, self.player_id = map(int, data[2 + self.SIZE_Y].split())
 
+        self.captured_buzzers = []
+
+        self.temporary_enemies = []
         # Debug
         self.network.send('ok')
         print('[GAME]', 'Init done')
@@ -104,6 +107,9 @@ class Game:
             exit()
         turn = int(data[0].split()[1])
         print('[GAME]', 'Turn', turn)
+
+        for enemy in self.temporary_enemies:
+            self.grid[enemy].browseable = True
 
         # CURRENT DATA
         current_cell, type_cell = None, None  # <id>, <type>={W, R, G, T, S, L}
@@ -134,31 +140,17 @@ class Game:
         enemies = []
         for i in range(6+N, 6+N+M):
             enemies.append(data[i].split())
-
+            if data[i].split()[0] in 'DG':
+                self.temporary_enemies.append(int(data[i].split()[1]))
+                self.grid[int(data[i].split()[1])].browseable = False
         EOT = data[6+N+M]
         if EOT != 'EOT':
             print('[GAME]', 'EOT Error', EOT)
             exit()
 
-        best_move = None
-        best_score = float('inf')
-        best_buzzer = None
-        for buzzer_pos in self.buzzers:
-            path = self.get_path(current_cell, buzzer_pos)
-            print(buzzer_pos, path)
-            if len(path) < best_score:
-                best_score = len(path)
-                best_move = path[-1]
-                best_buzzer = buzzer_pos
-
-        if best_score <= 1:
-            self.buzzers.remove(best_buzzer)
-
-        action = [['M', best_move], [None, -1]]
-
         # Compute actions [0]: Move | [1]: Power ('P' or 'S')
-        #best_move = self.flood_fill_buzzers(current_cell)
-        #action = [['M', best_move[0]], [None, -1]]
+        best_move = self.astar(current_cell)#self.flood_fill_buzzers(current_cell)
+        action = [['M', best_move[0]], [None, -1]]
 
         # Send actions
         action_str = ' '.join((str(i) for i in action[0])) + '\n'
@@ -214,6 +206,27 @@ class Game:
         return possible_moves[0]
 
 
+    def astar(self, current_cell):
+        best_move = None
+        best_score = float('inf')
+        best_buzzer = None
+        for buzzer_pos in self.buzzers:
+            if buzzer_pos not in self.captured_buzzers:
+                path = self.get_path(current_cell, buzzer_pos)
+                print(buzzer_pos, path)
+                if len(path) < best_score:
+                    best_score = len(path)
+                    best_move = path[-1]
+                    best_buzzer = buzzer_pos
+
+        if best_score <= 1:
+            self.captured_buzzers.append(best_buzzer)
+
+        action = [['M', best_move], [None, -1]]
+        next_cell = self.next_cell(current_cell, best_move)
+        return [best_move, next_cell, best_score, self.grid[next_cell].type_cell]
+
+
     def get_path(self, start, end):
         """Returns a path between start and end if it exists and a list of cells analzyed"""
         if start == end:
@@ -227,7 +240,7 @@ class Game:
             TYPE_TAR : 0.3,
             TYPE_GRASS : 1,
             TYPE_TREE : 1,
-            TYPE_SAND : 3,
+            TYPE_SAND : float('inf'),
             TYPE_BORDER : float('inf'),
             TYPE_P2GEI : 1,
             TYPE_P1GEI : 1,
