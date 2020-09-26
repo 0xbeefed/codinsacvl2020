@@ -99,7 +99,7 @@ class Game:
 
                 #print('[PROPAGATE]', 'Iterative call on', cell_id, level, '| seen:', len(seen))
 
-                score = level * level * level * level
+                score = level
                 if cell_id not in self.sub_floodfill_maps[buzzer]:
                     self.sub_floodfill_maps[buzzer][cell_id] = score
                 self.sub_floodfill_maps[buzzer][cell_id] = min(self.sub_floodfill_maps[buzzer][cell_id], score)
@@ -108,7 +108,7 @@ class Game:
                     new_cell_id = self.next_cell(cell_id, direction)
                     if new_cell_id not in seen and new_cell_id in self.grid.keys() and self.grid[new_cell_id].browseable:
                         seen.append(new_cell_id)
-                        queue.append([new_cell_id, level + 1])
+                        queue.append([new_cell_id, level + self.grid[new_cell_id].coef])
 
             print('[PROPAGATE]', 'Calculated flood map from buzzer')
 
@@ -168,7 +168,7 @@ class Game:
             exit()
 
         # Compute actions [0]: Move | [1]: Power ('P' or 'S')
-        best_move = self.flood_fill_min(current_cell)
+        best_move = self.flood_fill_min(current_cell, enemies)
         action = [['M', best_move[0]], [None, -1]]
 
         # Send actions
@@ -178,7 +178,42 @@ class Game:
         action_str += 'EOI'
         self.network.send(action_str)
 
-    def flood_fill_min(self, current_cell):
+    def propagate(self, center, max_dist, value, factor):
+        output = {}
+        seen = []
+        queue = []
+        queue.append([center, 0])
+
+        while queue:
+            cell_id, level = queue.pop(0)
+
+            # print('[PROPAGATE]', 'Iterative call on', cell_id, level, '| seen:', len(seen))
+
+            score = value / (max(0.01, level) * factor)
+            if cell_id not in output:
+                output[cell_id] = score
+            output[cell_id] = min(output[cell_id], score)
+
+            for direction in [1, 2, 3, 4, 5, 6]:
+                new_cell_id = self.next_cell(cell_id, direction)
+                if new_cell_id not in seen and new_cell_id in self.grid.keys() and self.grid[new_cell_id].browseable:
+                    seen.append(new_cell_id)
+                    queue.append([new_cell_id, level + 1])
+
+        return output
+
+    def flood_fill_min(self, current_cell, enemies):
+        # Guards
+        enemy_propagated = {}
+        for enemy in enemies:
+            enemy_type, enemy_cell = enemy
+            enemy_cell = int(enemy_cell)
+
+            if enemy_type == 'G':
+                # Propagate from any guard, dist max 10
+                enemy_propagated[enemy_cell] = self.propagate(enemy_cell, 8, 100, 1.2)
+
+
         # Pick the cell with the lowest score
         possible_moves = []
         for direction in [1, 2, 3, 4, 5, 6]:
@@ -187,10 +222,18 @@ class Game:
             if new_cell_id in self.grid.keys() and self.grid[new_cell_id].browseable:
                 # For a direction, we take the smallest of all buzzer maps
                 move = [direction, new_cell_id, float('inf'), self.grid[new_cell_id].type_cell]
+
+                # Cell modifier from guards
+                value_modifier = 0
+                for k in enemy_propagated.keys():
+                    value_modifier += enemy_propagated[k][new_cell_id]
+                print('[PROPAGATE]', 'value_modifier:', value_modifier)
+
+                # Calculate worthyness from floodfill
                 for buzzer in self.buzzers:
                     if buzzer not in self.captured_buzzers:
-                        if move[2] > self.sub_floodfill_maps[buzzer][new_cell_id]:
-                            move[2] = self.sub_floodfill_maps[buzzer][new_cell_id]
+                        if move[2] > self.sub_floodfill_maps[buzzer][new_cell_id] + value_modifier:
+                            move[2] = self.sub_floodfill_maps[buzzer][new_cell_id] + value_modifier
                 possible_moves.append(list(move))
 
         possible_moves = sorted(possible_moves, key=lambda a: a[2])
