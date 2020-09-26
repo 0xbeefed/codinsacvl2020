@@ -12,15 +12,6 @@ from sand import *
 from floor import *
 import sys
 
-directions = {
-    1: -self.SIZE_X + 1,
-    2: 1,
-    3: self.SIZE_X + 1,
-    4: self.SIZE_X - 1,
-    5: -1,
-    6: -self.SIZE_X - 1
-}
-
 class Game:
 
     def __init__(self):
@@ -44,6 +35,14 @@ class Game:
 
         # Grab map size
         self.SIZE_X, self.SIZE_Y = map(int, data[1].split())
+        self.directions = {
+            1: -self.SIZE_X + 1,
+            2: 1,
+            3: self.SIZE_X + 1,
+            4: self.SIZE_X - 1,
+            5: -1,
+            6: -self.SIZE_X - 1
+        }
 
         # Parse grid data[2]
         for y in range(self.SIZE_Y):
@@ -119,15 +118,6 @@ class Game:
     def flood_fill_buzzers(self):
         print('[PROPAGATE]', 'Starting propagation algo')
 
-        directions = {
-            1: -self.SIZE_X + 1,
-            2: 1,
-            3: self.SIZE_X + 1,
-            4: self.SIZE_X - 1,
-            5: -1,
-            6: -self.SIZE_X - 1
-        }
-
         for buzzer in self.buzzers:
             print('[PROPAGATE]', 'Propagating buzzer at cell ' + str(buzzer))
 
@@ -145,8 +135,8 @@ class Game:
                     self.sub_propagate_grid[cell_id] = score
                 self.sub_propagate_grid[cell_id] = min(self.sub_propagate_grid[cell_id], score)
 
-                for direction in directions.keys():
-                    new_cell_id = cell_id + directions[direction]
+                for direction in self.directions.keys():
+                    new_cell_id = cell_id + self.directions[direction]
                     if new_cell_id not in seen and new_cell_id in self.grid.keys() and self.grid[new_cell_id].browseable:
                         seen.append(new_cell_id)
                         queue.append([new_cell_id, level + 1])
