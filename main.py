@@ -182,8 +182,8 @@ class Game:
         action_str = ' '.join((str(i) for i in action[0])) + '\n'
         if action[1][0]:
             action_str += ' '.join((str(i) for i in action[1])) + '\n'
-        if len(action)>2 and action[2][0]:
-            action_str += ' '.join((str(i) for i in action[2])) + '\n'
+        """if len(action)>2 and action[2][0]:
+            action_str += ' '.join((str(i) for i in action[2])) + '\n'"""
         action_str += 'EOI'
         self.network.send(action_str)
 
@@ -298,12 +298,13 @@ class Game:
                         second_move = path[-2]
                     best_buzzer = buzzer_pos
 
-        if best_score <= 1 or (best_score <=2 and not turn%2):
+        if self.grid[self.next_cell(current_cell, best_move)].type_cell == TYPE_TAR:
+            action = [['MF', best_move, second_move]]
+        else:
+            action = [['M', best_move]]  
+        if best_score - len(action) < 0:
             self.captured_buzzers.append(best_buzzer)
-
-        action = [['M', best_move]]
-        if turn%2:
-            action.append(['M', second_move])
+            
         action.append([None, -1])
         print("[action]", action)
         return action
