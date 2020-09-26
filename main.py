@@ -186,6 +186,38 @@ class Game:
         print('[PROPAGATE]', 'Propagation ended')
         print(self.sub_propagate_grid)
 
+    def pos_to_x_y(self, pos):
+        x = pos%SIZE_X
+        y = pos//SIZE_X
+        return (x, y)
+
+    def x_y_to_pos(self, pos1):
+        x, y = pos1
+        pos2 =y*SIZE_X + x
+        return pos2
+
+    def cube_to_oddr(self, pos1):
+        x1, y1, z1 = pos1
+        col = x1 + (z1 - (z1&1)) // 2
+        row = z1
+        return (col, row)
+        
+    def oddr_to_cube(self, pos1):
+        col, row = pos1
+        x2 = col - (row - (row&1))//2
+        z2 = row
+        y2 = -x2-z2
+        return (x2, y2, z2)
+
+    def distance_cube(self, pos1, pos2):
+        x1, y1, z1 = pos1
+        x2, y2, z2 = pos2
+        return (abs(x1-x2) + abs(y1-y2) + abs(z1-z2)) // 2
+
+    def distance(self, pos1, pos2):
+        return self.distance_cube(self.oddr_to_cube(self.pos_to_x_y(pos1)), self.oddr_to_cube(self.pos_to_x_y(pos2)))
+
+
 game = Game()
 while 1:
     game.play_turn()
