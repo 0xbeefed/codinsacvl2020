@@ -35,14 +35,6 @@ class Game:
 
         # Grab map size
         self.SIZE_X, self.SIZE_Y = map(int, data[1].split())
-        self.directions = {
-            1: -self.SIZE_X + 1,
-            2: 1,
-            3: self.SIZE_X + 1,
-            4: self.SIZE_X - 1,
-            5: -1,
-            6: -self.SIZE_X - 1
-        }
 
         # Parse grid data[2]
         for y in range(self.SIZE_Y):
@@ -91,6 +83,35 @@ class Game:
         # Parse player count and self player id
         self.player_count, self.player_id = map(int, data[2 + self.SIZE_Y].split())
 
+        # Calculating floodfills
+        self.sub_floodfill_maps = {}
+        self.captured_buzzers = []
+        for buzzer in self.buzzers:
+            print('[PROPAGATE]', 'Propagating buzzer at cell ' + str(buzzer))
+
+            self.sub_floodfill_maps[buzzer] = {}
+            seen = []
+            queue = []
+            queue.append([buzzer, 0])
+
+            while queue:
+                cell_id, level = queue.pop(0)
+
+                #print('[PROPAGATE]', 'Iterative call on', cell_id, level, '| seen:', len(seen))
+
+                score = level * level * level * level
+                if cell_id not in self.sub_floodfill_maps[buzzer]:
+                    self.sub_floodfill_maps[buzzer][cell_id] = score
+                self.sub_floodfill_maps[buzzer][cell_id] = min(self.sub_floodfill_maps[buzzer][cell_id], score)
+
+                for direction in [1, 2, 3, 4, 5, 6]:
+                    new_cell_id = self.next_cell(cell_id, direction)
+                    if new_cell_id not in seen and new_cell_id in self.grid.keys() and self.grid[new_cell_id].browseable:
+                        seen.append(new_cell_id)
+                        queue.append([new_cell_id, level + 1])
+
+            print('[PROPAGATE]', 'Calculated flood map from buzzer')
+
         # Debug
         self.network.send('ok')
         print('[GAME]', 'Init done')
@@ -116,8 +137,14 @@ class Game:
         enemies = None  # enemies in sight
         EOT = None  # last line, if != 'EOT':exit()
 
+        # Current cell: have we captured a new buzzer?
         current_cell, type_cell = data[1].split()
         current_cell = int(current_cell)
+
+        for buzzer in self.buzzers:
+            if current_cell == buzzer:
+                self.captured_buzzers.append(buzzer)
+
         current_power = data[2]  
         suspected = data[3]  
 
@@ -141,7 +168,7 @@ class Game:
             exit()
 
         # Compute actions [0]: Move | [1]: Power ('P' or 'S')
-        best_move = self.flood_fill_buzzers(current_cell)
+        best_move = self.flood_fill_min(current_cell)
         action = [['M', best_move[0]], [None, -1]]
 
         # Send actions
@@ -151,61 +178,34 @@ class Game:
         action_str += 'EOI'
         self.network.send(action_str)
 
-    def flood_fill_buzzers(self, current_cell):
-        print('[PROPAGATE]', 'Starting propagation algo')
-
-        for buzzer in self.buzzers:
-            print('[PROPAGATE]', 'Propagating buzzer at cell ' + str(buzzer))
-
-            seen = []
-            queue = []
-            queue.append([buzzer, 0])
-
-            while queue:
-                cell_id, level = queue.pop(0)
-
-                #print('[PROPAGATE]', 'Iterative call on', cell_id, level, '| seen:', len(seen))
-
-                score = level * level
-                if cell_id not in self.sub_propagate_grid:
-                    self.sub_propagate_grid[cell_id] = score
-                self.sub_propagate_grid[cell_id] = min(self.sub_propagate_grid[cell_id], score)
-
-                for direction in self.directions.keys():
-                    new_cell_id = cell_id + self.directions[direction]
-                    if new_cell_id not in seen and new_cell_id in self.grid.keys() and self.grid[new_cell_id].browseable:
-                        seen.append(new_cell_id)
-                        queue.append([new_cell_id, level + 1])
-
-            print('[PROPAGATE]', 'Propagated buzzer', buzzer, '| merging matrixes')
-
-            for cell in self.sub_propagate_grid.keys():
-                if cell not in self.propagate_grid:
-                    self.propagate_grid[cell] = 0
-                self.propagate_grid[cell] += self.sub_propagate_grid[cell]
-
-        print('[PROPAGATE]', 'Propagation ended')
-
+    def flood_fill_min(self, current_cell):
         # Pick the cell with the lowest score
         possible_moves = []
-        for direction in self.directions.keys():
-            new_cell_id = current_cell + self.directions[direction]
+        for direction in [1, 2, 3, 4, 5, 6]:
+            new_cell_id = self.next_cell(current_cell, direction)
+
             if new_cell_id in self.grid.keys() and self.grid[new_cell_id].browseable:
-                possible_moves.append([direction, new_cell_id, self.propagate_grid[new_cell_id], self.grid[new_cell_id].type_cell])
-        possible_moves = sorted(possible_moves, key=lambda a:a[2])
+                # For a direction, we take the smallest of all buzzer maps
+                move = [direction, new_cell_id, float('inf'), self.grid[new_cell_id].type_cell]
+                for buzzer in self.buzzers:
+                    if buzzer not in self.captured_buzzers:
+                        if move[2] > self.sub_floodfill_maps[buzzer][new_cell_id]:
+                            move[2] = self.sub_floodfill_maps[buzzer][new_cell_id]
+                possible_moves.append(list(move))
+
+        possible_moves = sorted(possible_moves, key=lambda a: a[2])
         print('[PROPAGATE]', 'Possible moves:', possible_moves)
         print('[PROPAGATE]', 'Best pick: ', possible_moves[0])
         return possible_moves[0]
 
-
     def pos_to_x_y(self, pos):
-        x = pos%SIZE_X
-        y = pos//SIZE_X
+        x = pos % self.SIZE_X
+        y = pos // self.SIZE_X
         return (x, y)
 
     def x_y_to_pos(self, pos1):
         x, y = pos1
-        pos2 =y*SIZE_X + x
+        pos2 =y * self.SIZE_X + x
         return pos2
 
     def cube_to_oddr(self, pos1):
