@@ -149,13 +149,15 @@ class Game:
             exit()
 
         # Compute actions [0]: Move | [1]: Power ('P' or 'S')
-        best_move = self.astar(current_cell)#self.flood_fill_buzzers(current_cell)
-        action = [['M', best_move[0]], [None, -1]]
+        action = self.astar(current_cell, turn)#self.flood_fill_buzzers(current_cell)
+        
 
         # Send actions
         action_str = ' '.join((str(i) for i in action[0])) + '\n'
         if action[1][0]:
             action_str += ' '.join((str(i) for i in action[1])) + '\n'
+        if len(action)>2 and action[2][0]:
+            action_str += ' '.join((str(i) for i in action[2])) + '\n'
         action_str += 'EOI'
         self.network.send(action_str)
 
@@ -206,8 +208,9 @@ class Game:
         return possible_moves[0]
 
 
-    def astar(self, current_cell):
+    def astar(self, current_cell, turn):
         best_move = None
+        second_move = None
         best_score = float('inf')
         best_buzzer = None
         for buzzer_pos in self.buzzers:
@@ -217,14 +220,19 @@ class Game:
                 if len(path) < best_score:
                     best_score = len(path)
                     best_move = path[-1]
+                    if len(path) > 1:
+                        second_move = path[-2]
                     best_buzzer = buzzer_pos
 
-        if best_score <= 1:
+        if best_score <= 1 or (best_score <=2 and not turn%2):
             self.captured_buzzers.append(best_buzzer)
 
-        action = [['M', best_move], [None, -1]]
-        next_cell = self.next_cell(current_cell, best_move)
-        return [best_move, next_cell, best_score, self.grid[next_cell].type_cell]
+        action = [['M', best_move]]
+        if turn%2:
+            action.append(['M', second_move])
+        action.append([None, -1])
+        print("[action]", action)
+        return action
 
 
     def get_path(self, start, end):
