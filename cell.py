@@ -7,3 +7,4 @@ class Cell:
         self.neighbours = list(neighbours)
         self.type_cell = type_cell
         self.browseable = True
+        self.coef = 1.0
