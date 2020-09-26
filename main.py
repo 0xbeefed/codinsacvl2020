@@ -145,6 +145,7 @@ class Game:
         # Compute actions [0]: Move | [1]: Power ('P' or 'S')
         best_move = self.flood_fill_buzzers(current_cell)
         action = [['M', best_move[0]], [None, -1]]
+        print("current pos :", current_cell)
 
         # Send actions
         action_str = ' '.join((str(i) for i in action[0])) + '\n'
@@ -161,11 +162,12 @@ class Game:
         position = old_pos
         etat ['position'] = position
         if actions[0][0] == 'MF':
-            move = 2
+            move = 3
         else :
-            move = 1
+            move = 2
         for i in range(1,move):
-            position = position + self.directions[actions[0][i]]
+            print ("pos : ", etat['position'])
+            etat['position'] = self.next_cell(etat['position'],actions[0][i])
             if self.grid[position].master_type == "Wall" or not seeing[position][1] and (actions[1][0] != 'P' or current_power != 2) :
                 position = etat['position']
             elif move == 2 and i == 1:
@@ -174,13 +176,14 @@ class Game:
         #etat ['dist_vigile'] = 
             #etudiant ivre et vigiles
         # gerer le sable
+        print ("next pos : ", etat['position'])
                 
 
     def flood_fill_buzzers(self, current_cell):
-        print('[PROPAGATE]', 'Starting propagation algo')
+        #print('[PROPAGATE]', 'Starting propagation algo')
 
         for buzzer in self.buzzers:
-            print('[PROPAGATE]', 'Propagating buzzer at cell ' + str(buzzer))
+            #print('[PROPAGATE]', 'Propagating buzzer at cell ' + str(buzzer))
 
             seen = []
             queue = []
@@ -202,14 +205,14 @@ class Game:
                         seen.append(new_cell_id)
                         queue.append([new_cell_id, level + 1])
 
-            print('[PROPAGATE]', 'Propagated buzzer', buzzer, '| merging matrixes')
+            #print('[PROPAGATE]', 'Propagated buzzer', buzzer, '| merging matrixes')
 
             for cell in self.sub_propagate_grid.keys():
                 if cell not in self.propagate_grid:
                     self.propagate_grid[cell] = 0
                 self.propagate_grid[cell] += self.sub_propagate_grid[cell]
 
-        print('[PROPAGATE]', 'Propagation ended')
+        #print('[PROPAGATE]', 'Propagation ended')
 
         # Pick the cell with the lowest score
         possible_moves = []
@@ -218,19 +221,19 @@ class Game:
             if new_cell_id in self.grid.keys() and self.grid[new_cell_id].browseable:
                 possible_moves.append([direction, new_cell_id, self.propagate_grid[new_cell_id], self.grid[new_cell_id].type_cell])
         possible_moves = sorted(possible_moves, key=lambda a:a[2])
-        print('[PROPAGATE]', 'Possible moves:', possible_moves)
-        print('[PROPAGATE]', 'Best pick: ', possible_moves[0])
+        #print('[PROPAGATE]', 'Possible moves:', possible_moves)
+        #print('[PROPAGATE]', 'Best pick: ', possible_moves[0])
         return possible_moves[0]
 
 
     def pos_to_x_y(self, pos):
-        x = pos%SIZE_X
-        y = pos//SIZE_X
+        x = pos%self.SIZE_X
+        y = pos//self.SIZE_X
         return (x, y)
 
     def x_y_to_pos(self, pos1):
         x, y = pos1
-        pos2 =y*SIZE_X + x
+        pos2 =y*self.SIZE_X + x
         return pos2
 
     def cube_to_oddr(self, pos1):
