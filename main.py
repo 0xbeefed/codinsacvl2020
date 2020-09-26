@@ -12,17 +12,28 @@ from sand import *
 from floor import *
 import sys
 
+directions = {
+    1: -self.SIZE_X + 1,
+    2: 1,
+    3: self.SIZE_X + 1,
+    4: self.SIZE_X - 1,
+    5: -1,
+    6: -self.SIZE_X - 1
+}
 
 class Game:
 
     def __init__(self):
         # Technical setup
         self.network = Network()
+        self.propagate_grid = {}
+        self.sub_propagate_grid = {}
 
         # Init stuff
         self.grid = {} # id_cell = y * self.SIZE_X + x
         self.guards = []
         self.students = []
+        self.buzzers = []
 
         # Grab init data
         self.network.send('token ' + config.token)
@@ -47,6 +58,7 @@ class Game:
                     # Buzzers
                     power = {TYPE_BUZZGPE: POWER_GPE, TYPE_BUZZGM: POWER_GM, TYPE_BUZZGC: POWER_GC, TYPE_BUZZGMM: POWER_GMM, TYPE_BUZZGEI: POWER_GEI}[cell_type]
                     self.grid[cell_id] = Buzzer(x, y, cell_id, {}, cell_type, power)
+                    self.buzzers.append(cell_id)
 
                 elif cell_type in [TYPE_P2GEI, TYPE_P1GEI, TYPE_P1GM, TYPE_P2GM, TYPE_P1GMM, TYPE_P2GMM, TYPE_P1GC, TYPE_P2GC, TYPE_P1GPE, TYPE_P2GPE]:
                     # Doors
@@ -129,6 +141,7 @@ class Game:
             exit()
 
         # Compute actions [0]: Move | [1]: Power ('P' or 'S')
+        self.flood_fill_buzzers()
         action = [['MF', 1, 2], [None, -1]]
 
         # Send actions
@@ -138,6 +151,50 @@ class Game:
         action_str += 'EOI'
         self.network.send(action_str)
 
+    def flood_fill_buzzers(self):
+        print('[PROPAGATE]', 'Starting propagation algo')
+
+        directions = {
+            1: -self.SIZE_X + 1,
+            2: 1,
+            3: self.SIZE_X + 1,
+            4: self.SIZE_X - 1,
+            5: -1,
+            6: -self.SIZE_X - 1
+        }
+
+        for buzzer in self.buzzers:
+            print('[PROPAGATE]', 'Propagating buzzer at cell ' + str(buzzer))
+
+            seen = []
+            queue = []
+            queue.append([buzzer, 0])
+
+            while queue:
+                cell_id, level = queue.pop(0)
+
+                #print('[PROPAGATE]', 'Iterative call on', cell_id, level, '| seen:', len(seen))
+
+                score = level * level
+                if cell_id not in self.sub_propagate_grid:
+                    self.sub_propagate_grid[cell_id] = score
+                self.sub_propagate_grid[cell_id] = min(self.sub_propagate_grid[cell_id], score)
+
+                for direction in directions.keys():
+                    new_cell_id = cell_id + directions[direction]
+                    if new_cell_id not in seen and new_cell_id in self.grid.keys() and self.grid[new_cell_id].browseable:
+                        seen.append(new_cell_id)
+                        queue.append([new_cell_id, level + 1])
+
+            print('[PROPAGATE]', 'Propagated buzzer', buzzer, '| merging matrixes')
+
+            for cell in self.sub_propagate_grid.keys():
+                if cell not in self.propagate_grid:
+                    self.propagate_grid[cell] = 0
+                self.propagate_grid[cell] += self.sub_propagate_grid[cell]
+
+        print('[PROPAGATE]', 'Propagation ended')
+        print(self.sub_propagate_grid)
 
 game = Game()
 while 1:
