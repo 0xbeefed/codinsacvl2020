@@ -151,11 +151,9 @@ class Game:
                 best_move = path[-1]
                 best_buzzer = buzzer_pos
 
-        print("before", self.buzzers)
         if best_score <= 1:
             self.buzzers.remove(best_buzzer)
 
-        print("after", self.buzzers)
         action = [['M', best_move], [None, -1]]
 
         # Compute actions [0]: Move | [1]: Power ('P' or 'S')
@@ -223,6 +221,36 @@ class Game:
         openList = [start]
         nodes = {start: [-1, 0, -1]}  # nodes[cell_id] = [parent, distance from the start, move]
         closedList = []
+
+        CELL_VALUES = {
+            TYPE_WALL : float('inf'),
+            TYPE_TAR : 0.3,
+            TYPE_GRASS : 1,
+            TYPE_TREE : 1,
+            TYPE_SAND : 3,
+            TYPE_BORDER : float('inf'),
+            TYPE_P2GEI : 1,
+            TYPE_P1GEI : 1,
+            TYPE_P1GM : 1,
+            TYPE_P2GM : 1,
+            TYPE_P1GMM : 1,
+            TYPE_P2GMM : 1,
+            TYPE_P1GC : 1,
+            TYPE_P2GC : 1,
+            TYPE_P1GPE : 1,
+            TYPE_P2GPE : 1,
+            TYPE_GPE : 1,
+            TYPE_GM : 1,
+            TYPE_GC : 1,
+            TYPE_GMM : 1,
+            TYPE_GEI : 1,
+            TYPE_CONCRETE : 1,
+            TYPE_BUZZGPE : 1,
+            TYPE_BUZZGM : 1,
+            TYPE_BUZZGC :1,
+            TYPE_BUZZGMM : 1,
+            TYPE_BUZZGEI: 1}
+
         while openList:
             current_node = openList[0]
             for tmp in openList[1:]:
@@ -239,9 +267,9 @@ class Game:
                     continue
                 elif not new_node in openList:
                     openList.append(new_node)
-                    nodes[new_node] = [current_node, nodes[current_node][1] + 1, move]  # + 1 coef fixe, à changer en fonction du terrain
-                elif not new_node in nodes or nodes[new_node][1] > nodes[current_node][1] + 1:
-                    nodes[new_node] = [current_node, nodes[current_node][1] + 1, move]
+                    nodes[new_node] = [current_node, nodes[current_node][1] + CELL_VALUES[self.grid[new_node].type_cell], move]  # + 1 coef fixe, à changer en fonction du terrain
+                elif not new_node in nodes or nodes[new_node][1] > nodes[current_node][1] + CELL_VALUES[self.grid[new_node].type_cell]:
+                    nodes[new_node] = [current_node, nodes[current_node][1] + CELL_VALUES[self.grid[new_node].type_cell], move]
             
         if current_node != end:  # if the path does not exist
             return []
