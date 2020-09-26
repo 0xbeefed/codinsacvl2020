@@ -1,6 +1,15 @@
 import zmq
 import config
+from globals import *
 from network import *
+from cell import *
+from wall import *
+from buzzer import *
+from door import *
+from tar import *
+from grass import *
+from sand import *
+from floor import *
 import sys
 
 
@@ -26,6 +35,50 @@ class Game:
         self.SIZE_X, self.SIZE_Y = map(int, data[1].split())
 
         # Parse grid data[2]
+        for y in range(self.SIZE_Y):
+            print('parsing:', data[2 + y])
+            raw_map = data[2 + y].split()
+            for x in range(self.SIZE_X):
+                #print(y, x, len(raw_map))
+                cell_id = y * self.SIZE_X + x
+                cell_type = raw_map[x]
+
+                if cell_type in [TYPE_BUZZGPE, TYPE_BUZZGM, TYPE_BUZZGC, TYPE_BUZZGMM, TYPE_BUZZGEI]:
+                    # Buzzers
+                    power = {TYPE_BUZZGPE: POWER_GPE, TYPE_BUZZGM: POWER_GM, TYPE_BUZZGC: POWER_GC, TYPE_BUZZGMM: POWER_GMM, TYPE_BUZZGEI: POWER_GEI}[cell_type]
+                    self.grid[cell_id] = Buzzer(x, y, cell_id, {}, cell_type, power)
+
+                elif cell_type in [TYPE_P2GEI, TYPE_P1GEI, TYPE_P1GM, TYPE_P2GM, TYPE_P1GMM, TYPE_P2GMM, TYPE_P1GC, TYPE_P2GC, TYPE_P1GPE, TYPE_P2GPE]:
+                    # Doors
+                    self.grid[cell_id] = Door(x, y, cell_id, {}, cell_type, True)
+
+                elif cell_type in [TYPE_GPE, TYPE_GM, TYPE_GC, TYPE_GMM, TYPE_GEI]:
+                    # Floors
+                    self.grid[cell_id] = Floor(x, y, cell_id, {}, cell_type)
+
+                elif cell_type in [TYPE_WALL, TYPE_CONCRETE, TYPE_TREE, TYPE_BORDER]:
+                    # Walls
+                    self.grid[cell_id] = Wall(x, y, cell_id, {}, cell_type)
+
+                elif cell_type == TYPE_TAR:
+                    # Tar
+                    self.grid[cell_id] = Tar(x, y, cell_id, {}, cell_type)
+
+                elif cell_type == TYPE_SAND:
+                    # Sand
+                    self.grid[cell_id] = Sand(x, y, cell_id, {}, cell_type)
+
+                elif cell_type == TYPE_GRASS:
+                    # Grass
+                    self.grid[cell_id] = Grass(x, y, cell_id, {}, cell_type)
+
+                else:
+                    print('[GAME]', 'Unable to map "' + cell_type + '" to a known cell type')
+
+        print('[GAME]', 'Map parsed')
+
+        # Parse player count and self player id
+        self.player_count, self.player_id = map(int, data[2 + self.SIZE_Y].split())
 
         # Debug
         self.network.send('ok')
