@@ -151,7 +151,7 @@ class Game:
             if current_cell == buzzer:
                 self.captured_buzzers.append(buzzer)
 
-        current_power = data[2]  
+        current_power = int(data[2])
         suspected = int(data[3])
         print('suspected: ', suspected)
 
@@ -178,7 +178,7 @@ class Game:
 
         # Compute actions [0]: Move | [1]: Power ('P' or 'S')
         #action = self.flood_fill_min(current_cell, enemies, suspected)
-        action = self.astar(current_cell, turn)
+        action = self.astar(current_cell, turn, current_power)
 
         # Send actions
         action_str = ' '.join((str(i) for i in action[0])) + '\n'
@@ -283,7 +283,8 @@ class Game:
         else:
             return [['M', best_move_1], [None, -1]]
 
-    def astar(self, current_cell, turn):
+    def astar(self, current_cell, turn, power):
+        # Moves
         best_move = None
         second_move = None
         best_score = float('inf')
@@ -305,8 +306,31 @@ class Game:
             action = [['M', best_move]]  
         if best_score - len(action) < 0:
             self.captured_buzzers.append(best_buzzer)
-            
-        action.append([None, -1])
+
+        # Powers
+        #print('[POWER]', 'current power:', power)
+        if power == POWER_GEI:
+            # Remote door closing - TODO
+            action.append([None, -1])
+
+        elif power == POWER_GMM:
+            # Deep learning glasses, use instantly
+            print('[POWER]', 'Using GMM power; deep learning glasses')
+            action.append(['P'])
+
+        elif power == POWER_GC:
+            # Place wall, use instantly
+            print('[POWER]', 'Using GC power; placing a wall')
+            action.append(['P'])
+
+        elif power == POWER_GPE:
+            # Invisibility, instant use
+            print('[POWER]', 'Using GPE power; invisibility for 10 turns')
+            action.append(['P'])
+
+        else:
+            action.append([None, -1])
+
         print("[action]", action)
         return action
 
