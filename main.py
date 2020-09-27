@@ -400,7 +400,7 @@ class Game:
                                 else:
                                     path = tmp_path.copy()
 
-                    print("#TODO: path towards doors")
+                    #print("#TODO: path towards doors")
                 break
         if best_move:
             if self.grid[self.next_cell(current_cell, best_move)].type_cell == TYPE_TAR:
@@ -415,9 +415,11 @@ class Game:
         # Powers
         #print('[POWER]', 'current power:', power)
         if power == POWER_GEI:
-            # Remote door closing - TODO
-            action.append([None, -1])
-
+            if not self.grid[self.next_cell(current_cell, best_move)].browseable:
+                action.append(['P'])
+        elif power == POWER_GM:
+            if not self.grid[self.next_cell(current_cell, best_move)].browseable:
+                action.append(['P'])
         elif power == POWER_GMM:
             # Deep learning glasses, use instantly
             print('[POWER]', 'Using GMM power; deep learning glasses')
