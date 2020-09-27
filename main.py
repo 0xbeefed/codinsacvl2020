@@ -198,7 +198,7 @@ class Game:
         if EOT != 'EOT':
             print('[GAME]', 'EOT Error', EOT)
             exit()
-
+        print('[PLAYTURN]', *enemies)
         # Compute actions [0]: Move | [1]: Power ('P' or 'S')
         #action = self.flood_fill_min(current_cell, enemies, suspected)
         action = self.astar(current_cell, turn, current_power, suspected)
@@ -369,7 +369,9 @@ class Game:
                             second_move = path[-2]
                         best_buzzer = buzzer_pos
                 elif suspected:  # if suspected, never stop on cell (check if no path cause door or concrete)
-                    if self.get_path(current_cell, buzzer_pos, 0, 0):  # without sand et with opened doors
+                    tmp = self.get_path(current_cell, buzzer_pos, 0, 1)  # without sand et with opened doors
+                    print('[DEBUG DE MORT]', tmp)
+                    if tmp:
                         choices = []
                         for i in range(1, 7):
                             tmp_next = self.next_cell(current_cell, i)
@@ -377,11 +379,27 @@ class Game:
                                 choices.append(i)
                         if choices:
                             best_move = random.choice(choices)
+                            print("[RANDOM CHOICE]")
                         else:
-                            best_move = None
+                            choices = []
+                            for i in range(1, 7):
+                                tmp_next = self.next_cell(current_cell, i)
+                                if self.grid[tmp_next].browseable:
+                                    choices.append(i)
+                            if choices:
+                                best_move = random.choice(choices)
+                                print("[RANDOM CHOICE]")
                             #print('bon bah on n'a aucunes cellules adjacentes dispo, RIP')
                     else:  # no path because concrete avoid path
                         self.captured_buzzers.append(buzzer_pos)
+                        choices = []
+                        for i in range(1, 7):
+                            tmp_next = self.next_cell(current_cell, i)
+                            if self.grid[tmp_next].browseable:
+                                choices.append(i)
+                        if choices:
+                            best_move = random.choice(choices)
+                            print("[RANDOM CHOICE]")
                 else:  # not suspected => we can wait in front of door
                     reverse = {TYPE_BUZZGPE: [TYPE_P1GPE, TYPE_P2GPE],
                         TYPE_BUZZGM : [TYPE_P1GM, TYPE_P2GM],
@@ -390,16 +408,17 @@ class Game:
                         TYPE_BUZZGEI: [TYPE_P1GEI, TYPE_P2GEI]}
                     type_buzz = self.grid[buzzer_pos].type_cell
                     goal1, goal2 = reverse[type_buzz]
-
+                    goal1 = self.type_to_doors[goal1]
+                    goal2 = self.type_to_doors[goal2]
                     if self.distance(current_cell, goal1) < self.distance(current_cell, goal2):
                         goal = goal1
                     else:
                         goal = goal2
 
                     path = []
-                    for tmp_cell in (next_cell(goal, i) for i in range(1, 7)):
+                    for tmp_cell in (self.next_cell(goal, i) for i in range(1, 7)):
                         if self.grid[tmp_cell].browseable:
-                            tmp_path = get_path(current_cell, tmp_cell, suspected, power)
+                            tmp_path = self.get_path(current_cell, tmp_cell, suspected, power)
                             if tmp_path:
                                 if path:
                                     if len(path) > tmp_path:
@@ -423,7 +442,9 @@ class Game:
         #print('[POWER]', 'current power:', power)
         if power == POWER_GEI:
             if not self.grid[self.next_cell(current_cell, best_move)].browseable:
-                action.append(['P'])
+                action.append(['P 0'])
+            else:
+                action.append(['P 1'])
         elif power == POWER_GM:
             if not self.grid[self.next_cell(current_cell, best_move)].browseable:
                 action.append(['P'])
