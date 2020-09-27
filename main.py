@@ -176,8 +176,7 @@ class Game:
             cell = data[i].split()
             #print (cell)
             if self.grid[int(cell[0])].type_cell != cell[1] and cell[1] == TYPE_CONCRETE:
-                self.grid[int(cell[0])].type_cell = TYPE_CONCRETE
-                self.grid[int(cell[0])].browseable = False
+                self.grid[int(cell[0])] = Wall(self.grid[int(cell[0])].x, self.grid[int(cell[0])].y, self.grid[int(cell[0])].cell_id, self.grid[int(cell[0])].neighbours, TYPE_CONCRETE)
                 print("[DISCOVER] Discovered CONCRETE")
             if self.grid[int(cell[0])].type_cell in TYPE_DOOR:
                 self.grid[int(cell[0])].browseable = True if cell[2] == "1" else False
