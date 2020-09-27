@@ -173,7 +173,15 @@ class Game:
         N = int(data[4])
         seeing = []
         for i in range(5, 5+N):
-            seeing.append(data[i].split())
+            cell = data[i].split()
+            #print (cell)
+            if self.grid[int(cell[0])].type_cell != cell[1] and cell[1] == TYPE_CONCRETE:
+                self.grid[int(cell[0])].type_cell = TYPE_CONCRETE
+                self.grid[int(cell[0])].browseable = False
+                print("[DISCOVER] Discovered CONCRETE")
+            if self.grid[int(cell[0])].type_cell in TYPE_DOOR:
+                self.grid[int(cell[0])].browseable = True if cell[2] == "1" else False
+        
 
         M = int(data[N+5])
         enemies = []
