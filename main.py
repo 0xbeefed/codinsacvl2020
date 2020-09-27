@@ -193,7 +193,7 @@ class Game:
 
         # Send actions
         action_str = ' '.join((str(i) for i in action[0])) + '\n'
-        if action[1][0]:
+        if len(action) > 1 and action[1][0]:
             action_str += ' '.join((str(i) for i in action[1])) + '\n'
 
         action_str += 'EOI'
@@ -299,13 +299,13 @@ class Game:
         DATA = dict()
         for buzzer_pos1 in self.buzzers:
             DATA[buzzer_pos1] = dict()
-            #path = self.get_path(current_cell, buzzer_pos1)
+            #path = self.get_path(current_cell, buzzer_pos1, 0)
             #DATA[current_cell].append((buzzer_pos1, len(path), path))
 
         for buzzer_pos1 in self.buzzers:
             for buzzer_pos2 in self.buzzers:
                 if buzzer_pos1 > buzzer_pos2:
-                    path = self.get_path(buzzer_pos1, buzzer_pos2)
+                    path = self.get_path(buzzer_pos1, buzzer_pos2, 0)
                     DATA[buzzer_pos1][buzzer_pos2] = (len(path), path)
                     DATA[buzzer_pos2][buzzer_pos1] = (len(path), path[::-1])
 
@@ -346,11 +346,10 @@ class Game:
         second_move = None
         best_score = float('inf')
         best_buzzer = None
-        new_buzzer_captured = False
 
         for buzzer_pos in self.best_choice:
             if buzzer_pos not in self.captured_buzzers:
-                path = self.get_path(current_cell, buzzer_pos)
+                path = self.get_path(current_cell, buzzer_pos, suspected)
                 print(buzzer_pos, path)
                 if path:  # maybe if guards in all buzzers
                     if len(path) < best_score:
@@ -367,7 +366,6 @@ class Game:
                 action = [['M', best_move]]  
             if best_score - len(action) < 0:
                 self.captured_buzzers.append(best_buzzer)
-                new_buzzer_captured = True
         else:
             action = []
 
@@ -387,7 +385,7 @@ class Game:
             print('[POWER]', 'Using GC power; placing a wall')
             action.append(['P'])
 
-        elif power == POWER_GPE and (suspected == 1 or new_buzzer_captured):
+        elif power == POWER_GPE and (suspected == 1 or best_score < 10 ):
             # Invisibility, instant use
             print('[POWER]', 'Using GPE power; invisibility for 10 turns')
             action.append(['P'])
@@ -399,7 +397,7 @@ class Game:
         return action
 
 
-    def get_path(self, start, end):
+    def get_path(self, start, end, suspected):
         """Returns a path between start and end if it exists and a list of cells analzyed"""
         if start == end:
             return []
@@ -412,7 +410,7 @@ class Game:
             TYPE_TAR : 0.2,
             TYPE_GRASS : 1,
             TYPE_TREE : 1,
-            TYPE_SAND : 10,
+            TYPE_SAND : float('inf') if suspected else 3,
             TYPE_BORDER : float('inf'),
             TYPE_P2GEI : 1,
             TYPE_P1GEI : 1,
