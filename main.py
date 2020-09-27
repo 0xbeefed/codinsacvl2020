@@ -12,6 +12,7 @@ from sand import *
 from floor import *
 import sys
 import time
+import random
 
 class Game:
 
@@ -26,6 +27,8 @@ class Game:
         self.guards = []
         self.students = []
         self.buzzers = []
+        self.type_to_doors = dict()
+        self.doors_to_type = dict()
 
         # Grab init data
         self.network.send('token ' + config.token)
@@ -58,6 +61,8 @@ class Game:
                 elif cell_type in [TYPE_P2GEI, TYPE_P1GEI, TYPE_P1GM, TYPE_P2GM, TYPE_P1GMM, TYPE_P2GMM, TYPE_P1GC, TYPE_P2GC, TYPE_P1GPE, TYPE_P2GPE]:
                     # Doors
                     self.grid[cell_id] = Door(x, y, cell_id, {}, cell_type, True)
+                    self.type_to_doors[cell_type] = cell_id
+                    self.doors_to_type[cell_id] = cell_type
 
                 elif cell_type in [TYPE_GPE, TYPE_GM, TYPE_GC, TYPE_GMM, TYPE_GEI]:
                     # Floors
@@ -81,7 +86,7 @@ class Game:
 
                 else:
                     print('[GAME]', 'Unable to map "' + cell_type + '" to a known cell type')
-
+        print(self.type_to_doors)
         print('[GAME]', 'Map parsed')
 
         # Parse player count and self player id
@@ -299,13 +304,13 @@ class Game:
         DATA = dict()
         for buzzer_pos1 in self.buzzers:
             DATA[buzzer_pos1] = dict()
-            #path = self.get_path(current_cell, buzzer_pos1, 0)
+            #path = self.get_path(current_cell, buzzer_pos1, 0, 0)
             #DATA[current_cell].append((buzzer_pos1, len(path), path))
 
         for buzzer_pos1 in self.buzzers:
             for buzzer_pos2 in self.buzzers:
                 if buzzer_pos1 > buzzer_pos2:
-                    path = self.get_path(buzzer_pos1, buzzer_pos2, 0)
+                    path = self.get_path(buzzer_pos1, buzzer_pos2, 0, 0)
                     DATA[buzzer_pos1][buzzer_pos2] = (len(path), path)
                     DATA[buzzer_pos2][buzzer_pos1] = (len(path), path[::-1])
 
@@ -340,8 +345,6 @@ class Game:
                     best_score = tmp + possibility[1]
                     self.best_choice = possibility[0]
 
-
-
         best_move = None
         second_move = None
         best_score = float('inf')
@@ -349,7 +352,7 @@ class Game:
 
         for buzzer_pos in self.best_choice:
             if buzzer_pos not in self.captured_buzzers:
-                path = self.get_path(current_cell, buzzer_pos, suspected)
+                path = self.get_path(current_cell, buzzer_pos, suspected, power)
                 print(buzzer_pos, path)
                 if path:  # maybe if guards in all buzzers
                     if len(path) < best_score:
@@ -358,6 +361,46 @@ class Game:
                         if len(path) > 1:
                             second_move = path[-2]
                         best_buzzer = buzzer_pos
+                elif suspected:  # if suspected, never stop on cell (check if no path cause door or concrete)
+                    if self.get_path(current_cell, buzzer_pos, 0, 0):  # without sand et with opened doors
+                        choices = []
+                        for i in range(1, 7):
+                            tmp_next = self.next_cell(current_cell, i)
+                            if self.grid[tmp_next].browseable:
+                                choices.append(i)
+                        if choices:
+                            best_move = random.choice(choices)
+                        else:
+                            best_move = None
+                            #print('bon bah on n'a aucunes cellules adjacentes dispo, RIP')
+                    else:  # no path because concrete avoid path
+                        self.captured_buzzers.append(buzzer_pos)
+                else:  # not suspected => we can wait in front of door
+                    reverse = {TYPE_BUZZGPE: [TYPE_P1GPE, TYPE_P2GPE],
+                        TYPE_BUZZGM : [TYPE_P1GM, TYPE_P2GM],
+                        TYPE_BUZZGC : [TYPE_P1GC, TYPE_P2GC],
+                        TYPE_BUZZGMM : [TYPE_P1GMM, TYPE_P2GMM],
+                        TYPE_BUZZGEI: [TYPE_P1GEI, TYPE_P2GEI]}
+                    type_buzz = self.grid[buzzer_pos].type_cell
+                    goal1, goal2 = reverse[type_buzz]
+
+                    if self.distance(current_cell, goal1) < self.distance(current_cell, goal2):
+                        goal = goal1
+                    else:
+                        goal = goal2
+
+                    path = []
+                    for tmp_cell in (next_cell(goal, i) for i in range(1, 7)):
+                        if self.grid[tmp_cell].browseable:
+                            tmp_path = get_path(current_cell, tmp_cell, suspected, power)
+                            if tmp_path:
+                                if path:
+                                    if len(path) > tmp_path:
+                                        path = tmp_path.copy()
+                                else:
+                                    path = tmp_path.copy()
+
+                    print("#TODO: path towards doors")
                 break
         if best_move:
             if self.grid[self.next_cell(current_cell, best_move)].type_cell == TYPE_TAR:
@@ -397,7 +440,7 @@ class Game:
         return action
 
 
-    def get_path(self, start, end, suspected):
+    def get_path(self, start, end, suspected, power):
         """Returns a path between start and end if it exists and a list of cells analzyed"""
         if start == end:
             return []
@@ -412,22 +455,22 @@ class Game:
             TYPE_TREE : 1,
             TYPE_SAND : float('inf') if suspected else 3,
             TYPE_BORDER : float('inf'),
-            TYPE_P2GEI : 1,
-            TYPE_P1GEI : 1,
-            TYPE_P1GM : 1,
-            TYPE_P2GM : 1,
-            TYPE_P1GMM : 1,
-            TYPE_P2GMM : 1,
-            TYPE_P1GC : 1,
-            TYPE_P2GC : 1,
-            TYPE_P1GPE : 1,
-            TYPE_P2GPE : 1,
+            TYPE_P2GEI : 1 if (power == POWER_GEI or power == POWER_GM or self.grid[self.type_to_doors[TYPE_P2GEI]].browseable) else float('inf'),
+            TYPE_P1GEI : 1 if (power == POWER_GEI or power == POWER_GM or self.grid[self.type_to_doors[TYPE_P1GEI]].browseable) else float('inf'),
+            TYPE_P1GM : 1 if (power == POWER_GEI or power == POWER_GM or self.grid[self.type_to_doors[TYPE_P1GM]].browseable) else float('inf'),
+            TYPE_P2GM : 1 if (power == POWER_GEI or power == POWER_GM or self.grid[self.type_to_doors[TYPE_P2GM]].browseable) else float('inf'),
+            TYPE_P1GMM : 1 if (power == POWER_GEI or power == POWER_GM or self.grid[self.type_to_doors[TYPE_P1GMM]].browseable) else float('inf'),
+            TYPE_P2GMM : 1 if (power == POWER_GEI or power == POWER_GM or self.grid[self.type_to_doors[TYPE_P2GMM]].browseable) else float('inf'),
+            TYPE_P1GC : 1 if (power == POWER_GEI or power == POWER_GM or self.grid[self.type_to_doors[TYPE_P1GC]].browseable) else float('inf'),
+            TYPE_P2GC : 1 if (power == POWER_GEI or power == POWER_GM or self.grid[self.type_to_doors[TYPE_P2GC]].browseable) else float('inf'),
+            TYPE_P1GPE : 1 if (power == POWER_GEI or power == POWER_GM or self.grid[self.type_to_doors[TYPE_P1GPE]].browseable) else float('inf'),
+            TYPE_P2GPE : 1 if (power == POWER_GEI or power == POWER_GM or self.grid[self.type_to_doors[TYPE_P2GPE]].browseable) else float('inf'),
             TYPE_GPE : 1,
             TYPE_GM : 1,
             TYPE_GC : 1,
             TYPE_GMM : 1,
             TYPE_GEI : 1,
-            TYPE_CONCRETE : 1,
+            TYPE_CONCRETE : float('inf'),
             TYPE_BUZZGPE : 1,
             TYPE_BUZZGM : 1,
             TYPE_BUZZGC :1,
