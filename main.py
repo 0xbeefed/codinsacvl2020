@@ -11,6 +11,7 @@ from grass import *
 from sand import *
 from floor import *
 import sys
+import time
 
 class Game:
 
@@ -120,6 +121,7 @@ class Game:
     def play_turn(self):
         # Receive turn data from server
         data = self.network.read()
+        start_time = time.time()
 
         if data[0].split()[0] != 'TURN':
             print('[GAME]', 'Turn error: not TURN', data[0], file=sys.stderr)
@@ -176,16 +178,17 @@ class Game:
 
         # Compute actions [0]: Move | [1]: Power ('P' or 'S')
         #action = self.flood_fill_min(current_cell, enemies, suspected)
-        action = self.astar(current_cell, turn)#self.flood_fill_buzzers(current_cell)
+        action = self.astar(current_cell, turn)
 
         # Send actions
         action_str = ' '.join((str(i) for i in action[0])) + '\n'
         if action[1][0]:
             action_str += ' '.join((str(i) for i in action[1])) + '\n'
-        """if len(action)>2 and action[2][0]:
-            action_str += ' '.join((str(i) for i in action[2])) + '\n'"""
+
         action_str += 'EOI'
         self.network.send(action_str)
+        end_time = (time.time() - start_time) * 1000
+        print('[PLAY_TURN]', 'Turn solution computed on', end_time, 'ms')
 
     def propagate(self, center, max_dist, value, factor):
         output = {}
@@ -279,8 +282,6 @@ class Game:
             return [['MF', best_move_1, best_move_2], [None, -1]]
         else:
             return [['M', best_move_1], [None, -1]]
-
-
 
     def astar(self, current_cell, turn):
         best_move = None
