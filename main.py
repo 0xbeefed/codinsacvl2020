@@ -178,7 +178,7 @@ class Game:
 
         # Compute actions [0]: Move | [1]: Power ('P' or 'S')
         #action = self.flood_fill_min(current_cell, enemies, suspected)
-        action = self.astar(current_cell, turn, current_power)
+        action = self.astar(current_cell, turn, current_power, suspected)
 
         # Send actions
         action_str = ' '.join((str(i) for i in action[0])) + '\n'
@@ -283,12 +283,13 @@ class Game:
         else:
             return [['M', best_move_1], [None, -1]]
 
-    def astar(self, current_cell, turn, power):
+    def astar(self, current_cell, turn, power, suspected):
         # Moves
         best_move = None
         second_move = None
         best_score = float('inf')
         best_buzzer = None
+        new_buzzer_captured = False
         for buzzer_pos in self.buzzers:
             if buzzer_pos not in self.captured_buzzers:
                 path = self.get_path(current_cell, buzzer_pos)
@@ -307,6 +308,7 @@ class Game:
                 action = [['M', best_move]]  
             if best_score - len(action) < 0:
                 self.captured_buzzers.append(best_buzzer)
+                new_buzzer_captured = True
         else:
             action = []
 
@@ -326,7 +328,7 @@ class Game:
             print('[POWER]', 'Using GC power; placing a wall')
             action.append(['P'])
 
-        elif power == POWER_GPE:
+        elif power == POWER_GPE and (suspected == 1 or new_buzzer_captured):
             # Invisibility, instant use
             print('[POWER]', 'Using GPE power; invisibility for 10 turns')
             action.append(['P'])
