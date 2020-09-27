@@ -30,6 +30,9 @@ class Game:
         # Grab init data
         self.network.send('token ' + config.token)
         data = self.network.read()
+
+        start = time.time()
+
         if data[0] != 'INIT':
             print('[GAME]', 'Init error: not INIT:', data[0], file=sys.stderr)
             exit()
@@ -117,6 +120,14 @@ class Game:
         # Debug
         self.network.send('ok')
         print('[GAME]', 'Init done')
+
+        self.best_moves_astar = dict()
+        self.best_choice = None
+        self.precalculated_astar()
+        for buzzer_pos in self.buzzers:
+            print('[INIT PRECALCUL]', self.best_moves_astar[buzzer_pos])
+
+        print('[INIT]', 'time spent', (time.time()-start)*1000, 'ms')
 
     def play_turn(self):
         # Receive turn data from server
@@ -283,14 +294,61 @@ class Game:
         else:
             return [['M', best_move_1], [None, -1]]
 
+          
+    def precalculated_astar(self):
+        DATA = dict()
+        for buzzer_pos1 in self.buzzers:
+            DATA[buzzer_pos1] = dict()
+            #path = self.get_path(current_cell, buzzer_pos1)
+            #DATA[current_cell].append((buzzer_pos1, len(path), path))
+
+        for buzzer_pos1 in self.buzzers:
+            for buzzer_pos2 in self.buzzers:
+                if buzzer_pos1 > buzzer_pos2:
+                    path = self.get_path(buzzer_pos1, buzzer_pos2)
+                    DATA[buzzer_pos1][buzzer_pos2] = (len(path), path)
+                    DATA[buzzer_pos2][buzzer_pos1] = (len(path), path[::-1])
+
+        for buzzer_pos in self.buzzers:
+            print("[PRECALCULATED_ASTAR]", buzzer_pos)
+            self.DFS(DATA, buzzer_pos, buzzer_pos, [], 0)
+
+            
+    def DFS(self, data, start, current, visited, score):
+        visited += [current]
+        if len(visited) == len(self.buzzers):
+            #print('[DFS]', visited)
+            if start in self.best_moves_astar:
+                if score < self.best_moves_astar[start][1]:
+                    self.best_moves_astar[start] = (list(visited), score)
+            else:
+                self.best_moves_astar[start] = (list(visited), score)
+        else:
+            for neighbor in data[current]:
+                tmp = list(visited)  # to copy, better than visited.copy()
+                if not neighbor in visited:
+                    self.DFS(data, start, neighbor, tmp, score + data[current][neighbor][0])
+
+                    
     def astar(self, current_cell, turn, power, suspected):
         # Moves
+        if turn == 0:
+            best_score = float('inf')
+            for buzzer_pos, possibility in self.best_moves_astar.items():
+                tmp = self.distance(current_cell, buzzer_pos)
+                if tmp + possibility[1] < best_score:
+                    best_score = tmp + possibility[1]
+                    self.best_choice = possibility[0]
+
+
+
         best_move = None
         second_move = None
         best_score = float('inf')
         best_buzzer = None
         new_buzzer_captured = False
-        for buzzer_pos in self.buzzers:
+
+        for buzzer_pos in self.best_choice:
             if buzzer_pos not in self.captured_buzzers:
                 path = self.get_path(current_cell, buzzer_pos)
                 print(buzzer_pos, path)
@@ -301,6 +359,7 @@ class Game:
                         if len(path) > 1:
                             second_move = path[-2]
                         best_buzzer = buzzer_pos
+                break
         if best_move:
             if self.grid[self.next_cell(current_cell, best_move)].type_cell == TYPE_TAR:
                 action = [['MF', best_move, second_move]]
@@ -350,10 +409,10 @@ class Game:
 
         CELL_VALUES = {
             TYPE_WALL : float('inf'),
-            TYPE_TAR : 0.3,
+            TYPE_TAR : 0.2,
             TYPE_GRASS : 1,
             TYPE_TREE : 1,
-            TYPE_SAND : float('inf'),
+            TYPE_SAND : 10,
             TYPE_BORDER : float('inf'),
             TYPE_P2GEI : 1,
             TYPE_P1GEI : 1,
