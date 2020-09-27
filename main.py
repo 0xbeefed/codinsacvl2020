@@ -91,31 +91,31 @@ class Game:
         # Calculating floodfills
         self.sub_floodfill_maps = {}
         self.captured_buzzers = []
-        for buzzer in self.buzzers:
-            print('[PROPAGATE]', 'Propagating buzzer at cell ' + str(buzzer))
+        #for buzzer in self.buzzers:
+        #    print('[PROPAGATE]', 'Propagating buzzer at cell ' + str(buzzer))
 
-            self.sub_floodfill_maps[buzzer] = {}
-            seen = []
-            queue = []
-            queue.append([buzzer, 0])
+        #    self.sub_floodfill_maps[buzzer] = {}
+        #    seen = []
+        #    queue = []
+        #    queue.append([buzzer, 0])
 
-            while queue:
-                cell_id, level = queue.pop(0)
+        #    while queue:
+        #        cell_id, level = queue.pop(0)
 
-                #print('[PROPAGATE]', 'Iterative call on', cell_id, level, '| seen:', len(seen))
+        #        #print('[PROPAGATE]', 'Iterative call on', cell_id, level, '| seen:', len(seen))
 
-                score = level
-                if cell_id not in self.sub_floodfill_maps[buzzer]:
-                    self.sub_floodfill_maps[buzzer][cell_id] = score
-                self.sub_floodfill_maps[buzzer][cell_id] = min(self.sub_floodfill_maps[buzzer][cell_id], score)
+        #        score = level
+        #        if cell_id not in self.sub_floodfill_maps[buzzer]:
+        #            self.sub_floodfill_maps[buzzer][cell_id] = score
+        #        self.sub_floodfill_maps[buzzer][cell_id] = min(self.sub_floodfill_maps[buzzer][cell_id], score)
 
-                for direction in [1, 2, 3, 4, 5, 6]:
-                    new_cell_id = self.next_cell(cell_id, direction)
-                    if new_cell_id not in seen and new_cell_id in self.grid.keys() and self.grid[new_cell_id].browseable:
-                        seen.append(new_cell_id)
-                        queue.append([new_cell_id, level + self.grid[new_cell_id].coef])
+        #        for direction in [1, 2, 3, 4, 5, 6]:
+        #            new_cell_id = self.next_cell(cell_id, direction)
+        #            if new_cell_id not in seen and new_cell_id in self.grid.keys() and self.grid[new_cell_id].browseable:
+        #                seen.append(new_cell_id)
+        #                queue.append([new_cell_id, level + self.grid[new_cell_id].coef])
 
-            print('[PROPAGATE]', 'Calculated flood map from buzzer')
+        #    print('[PROPAGATE]', 'Calculated flood map from buzzer')
 
         # Debug
         self.network.send('ok')
@@ -173,7 +173,15 @@ class Game:
         N = int(data[4])
         seeing = []
         for i in range(5, 5+N):
-            seeing.append(data[i].split())
+            cell = data[i].split()
+            #print (cell)
+            if self.grid[int(cell[0])].type_cell != cell[1] and cell[1] == TYPE_CONCRETE:
+                self.grid[int(cell[0])].type_cell = TYPE_CONCRETE
+                self.grid[int(cell[0])].browseable = False
+                print("[DISCOVER] Discovered CONCRETE")
+            if self.grid[int(cell[0])].type_cell in TYPE_DOOR:
+                self.grid[int(cell[0])].browseable = True if cell[2] == "1" else False
+        
 
         M = int(data[N+5])
         enemies = []

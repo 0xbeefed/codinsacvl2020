@@ -1,5 +1,5 @@
 token = 'poletactique'
 IP = 'deepdev.ddns.net'
-port = 5542 # Cvl1
+port = 5540 # Cvl1
 PLAYER = -1
-DEBUG_NETWORK = True
+DEBUG_NETWORK = False
