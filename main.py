@@ -421,7 +421,7 @@ class Game:
                             tmp_path = self.get_path(current_cell, tmp_cell, suspected, power)
                             if tmp_path:
                                 if path:
-                                    if len(path) > tmp_path:
+                                    if len(path) > len(tmp_path):
                                         path = tmp_path.copy()
                                 else:
                                     path = tmp_path.copy()
