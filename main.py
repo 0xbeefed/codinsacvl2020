@@ -25,6 +25,7 @@ class Game:
         self.guards = []
         self.students = []
         self.buzzers = []
+        self.locked_doors = []
 
         # Grab init data
         self.network.send('token ' + config.token)
@@ -48,32 +49,32 @@ class Game:
                 if cell_type in [TYPE_BUZZGPE, TYPE_BUZZGM, TYPE_BUZZGC, TYPE_BUZZGMM, TYPE_BUZZGEI]:
                     # Buzzers
                     power = {TYPE_BUZZGPE: POWER_GPE, TYPE_BUZZGM: POWER_GM, TYPE_BUZZGC: POWER_GC, TYPE_BUZZGMM: POWER_GMM, TYPE_BUZZGEI: POWER_GEI}[cell_type]
-                    self.grid[cell_id] = Buzzer(x, y, cell_id, {}, cell_type, power)
+                    self.grid[cell_id] = Buzzer(x, y, cell_id, {}, cell_type, power, "Buzzer")
                     self.buzzers.append(cell_id)
 
                 elif cell_type in [TYPE_P2GEI, TYPE_P1GEI, TYPE_P1GM, TYPE_P2GM, TYPE_P1GMM, TYPE_P2GMM, TYPE_P1GC, TYPE_P2GC, TYPE_P1GPE, TYPE_P2GPE]:
                     # Doors
-                    self.grid[cell_id] = Door(x, y, cell_id, {}, cell_type, True)
+                    self.grid[cell_id] = Door(x, y, cell_id, {}, cell_type, True, "Door")
 
                 elif cell_type in [TYPE_GPE, TYPE_GM, TYPE_GC, TYPE_GMM, TYPE_GEI]:
                     # Floors
-                    self.grid[cell_id] = Floor(x, y, cell_id, {}, cell_type)
+                    self.grid[cell_id] = Floor(x, y, cell_id, {}, cell_type, "Floor")
 
                 elif cell_type in [TYPE_WALL, TYPE_CONCRETE, TYPE_TREE, TYPE_BORDER]:
                     # Walls
-                    self.grid[cell_id] = Wall(x, y, cell_id, {}, cell_type)
+                    self.grid[cell_id] = Wall(x, y, cell_id, {}, cell_type, "Walls")
 
                 elif cell_type == TYPE_TAR:
                     # Tar
-                    self.grid[cell_id] = Tar(x, y, cell_id, {}, cell_type)
+                    self.grid[cell_id] = Tar(x, y, cell_id, {}, cell_type, "Tar")
 
                 elif cell_type == TYPE_SAND:
                     # Sand
-                    self.grid[cell_id] = Sand(x, y, cell_id, {}, cell_type)
+                    self.grid[cell_id] = Sand(x, y, cell_id, {}, cell_type,"Sand")
 
                 elif cell_type == TYPE_GRASS:
                     # Grass
-                    self.grid[cell_id] = Grass(x, y, cell_id, {}, cell_type)
+                    self.grid[cell_id] = Grass(x, y, cell_id, {}, cell_type,"Grass")
 
                 else:
                     print('[GAME]', 'Unable to map "' + cell_type + '" to a known cell type')
@@ -146,16 +147,18 @@ class Game:
                 self.captured_buzzers.append(buzzer)
 
         current_power = data[2]  
-        suspected = data[3]  
-
+        suspected = bool(data[3])
         if data[4].split()[0] == 'Q':
             door = data[4].split()[1]
             del data[4]
 
         N = int(data[4])
-        seeing = []
+        seeing = {}
         for i in range(5, 5+N):
-            seeing.append(data[i].split())
+            temp = data[i].split()
+            seeing[int(temp[0])]=[temp[1],temp[2]]
+            if self.grid[int(temp[0])].master_type == "Door" and temp[2]=="0":
+                self.locked_doors.append(int(temp[0]))
 
         M = int(data[N+5])
         enemies = []
@@ -168,16 +171,87 @@ class Game:
             exit()
 
         # Compute actions [0]: Move | [1]: Power ('P' or 'S')
-        best_move = self.flood_fill_min(current_cell)
-        action = [['M', best_move[0]], [None, -1]]
-
+        if suspected :
+            action = self.flee(enemies, current_cell, type_cell, current_power, seeing)
+            print(action)
+        else :
+            best_move = self.flood_fill_min(current_cell)
+            action = [['M', best_move[0]], [None, -1]]
+            print("test : ",action)
+        
         # Send actions
         action_str = ' '.join((str(i) for i in action[0])) + '\n'
         if action[1][0]:
             action_str += ' '.join((str(i) for i in action[1])) + '\n'
         action_str += 'EOI'
         self.network.send(action_str)
+    # We flee the building, but once we're at the door, we don't do anything because we want the buzzer
+    def flee(self, enemies, current_cell, type_cell, power, seeing):
+        if power == POWER_GPE:
+            best_move = self.flood_fill_min(current_cell)
+            return [['M', best_move[0]], ["P", -1]]
+        elif enemies:
+            if self.grid[current_cell].master_type == "Floor":
+                tiles = []
+                seen = []
+                queue = []
+                queue.append(current_cell)
+                destinationDoor = []
+    
+                while queue:
+                    cell = queue.pop(0)
+    
+                    #print('[PROPAGATE]', 'Iterative call on', cell_id, level, '| seen:', len(seen))
+    
+                    for direction in [1, 2, 3, 4, 5, 6]:
+                        new_cell_id = self.next_cell(cell, direction)
+                        if new_cell_id not in seen and new_cell_id in self.grid.keys() and self.grid[new_cell_id].master_type in ("Door","Floor"):
+                            tiles.append({'id':new_cell_id})
+                            seen.append(new_cell_id)
+                            queue.append(new_cell_id)
 
+                for tile in tiles:
+                    tile['owner']=None
+                    for e in enemies:
+                        enemy_cell = int(e[1])
+                        tempdist = self.distance(tile['id'],enemy_cell)
+                        if tile['owner'] == None or tempdist < self.distance(tile['id'], tile['owner']) :
+                            tile['owner'] == enemy_cell
+                    if tile['owner'] == None or self.distance(tile['id'],current_cell) < self.distance(tile['id'], tile['owner']):
+                        tile['owner'] = current_cell
+                        if self.grid[tile['id']].master_type == "Door" :
+                            if tile['id'] not in self.locked_doors or power in (TYPE_GEI, TYPE_GM):
+                                destinationDoor.append(tile['id'])
+                            else :
+                                otherDoor = tile['id']
+                seen = []
+                value = {}
+                queue = []
+                if destinationDoor:
+                    door = destinationDoor[0]
+                    queue.append([destinationDoor[0], 0])
+                else :
+                    door = otherDoor
+                    queue.append([otherDoor,0])
+                while queue:
+                    cell,level = queue.pop(0)
+                    #print('[PROPAGATE]', 'Iterative call on', cell_id, level, '| seen:', len(seen))
+                    for direction in [1, 2, 3, 4, 5, 6]:
+                        new_cell_id = self.next_cell(cell, direction)
+                        if {'id': new_cell_id,'owner':current_cell} in tiles and new_cell_id not in seen and new_cell_id in self.grid.keys() and self.grid[new_cell_id].master_type in ("Door","Floor"):
+                            seen.append(new_cell_id)
+                            queue.append([new_cell_id, level + 1])
+                            value[new_cell_id]= level * level
+                future_cell = [0, float('inf')]
+                for direction in [1, 2, 3, 4, 5, 6]:
+                    new_cell_id = self.next_cell(current_cell, direction)
+                    if new_cell_id in value.keys() and value[new_cell_id] < future_cell[1]:
+                        future_cell = [direction, value[new_cell_id]]
+                return [['M', future_cell[0]],[None,-1]]
+        best_move = self.flood_fill_min(current_cell)
+        return [['M', best_move[0]],[None,-1]]
+
+    
     def flood_fill_min(self, current_cell):
         # Pick the cell with the lowest score
         possible_moves = []
