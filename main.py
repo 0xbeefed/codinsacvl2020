@@ -443,8 +443,6 @@ class Game:
         if power == POWER_GEI:
             if not self.grid[self.next_cell(current_cell, best_move)].browseable:
                 action.append(['P 0'])
-            else:
-                action.append(['P 1'])
         elif power == POWER_GM:
             if not self.grid[self.next_cell(current_cell, best_move)].browseable:
                 action.append(['P'])
