@@ -293,19 +293,22 @@ class Game:
             if buzzer_pos not in self.captured_buzzers:
                 path = self.get_path(current_cell, buzzer_pos)
                 print(buzzer_pos, path)
-                if len(path) < best_score:
-                    best_score = len(path)
-                    best_move = path[-1]
-                    if len(path) > 1:
-                        second_move = path[-2]
-                    best_buzzer = buzzer_pos
-
-        if self.grid[self.next_cell(current_cell, best_move)].type_cell == TYPE_TAR:
-            action = [['MF', best_move, second_move]]
+                if path:  # maybe if guards in all buzzers
+                    if len(path) < best_score:
+                        best_score = len(path)
+                        best_move = path[-1]
+                        if len(path) > 1:
+                            second_move = path[-2]
+                        best_buzzer = buzzer_pos
+        if best_move:
+            if self.grid[self.next_cell(current_cell, best_move)].type_cell == TYPE_TAR:
+                action = [['MF', best_move, second_move]]
+            else:
+                action = [['M', best_move]]  
+            if best_score - len(action) < 0:
+                self.captured_buzzers.append(best_buzzer)
         else:
-            action = [['M', best_move]]  
-        if best_score - len(action) < 0:
-            self.captured_buzzers.append(best_buzzer)
+            action = []
 
         # Powers
         #print('[POWER]', 'current power:', power)
