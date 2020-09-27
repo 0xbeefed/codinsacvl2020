@@ -169,7 +169,7 @@ class Game:
 
         current_power = int(data[2])
         suspected = int(data[3])
-        print('suspected: ', suspected)
+        print('suspected, current power: ', suspected, current_power)
 
         if data[4].split()[0] == 'Q':
             door = data[4].split()[1]
